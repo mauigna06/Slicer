@@ -1402,6 +1402,52 @@ void vtkSlicerMarkupsWidgetRepresentation3D::UpdateInteractionPipeline()
     this->InteractionPipeline->Actor->SetVisibility(false);
     return;
     }
+
+  vtkCamera* camera = this->InteractionPipeline->Representation->GetRenderer()->GetActiveCamera();
+  if (!camera)
+    {
+    qCritical() << Q_FUNC_INFO << ": Failed to get camera";
+    return false;
+    }
+
+  // Camera parameters
+  // Camera position
+  double cameraPos[4] = { 0 };
+  camera->GetPosition(cameraPos);
+  cameraPos[3] = 1.0;
+  // Focal point position
+  double cameraFP[4] = { 0 };
+  camera->GetFocalPoint(cameraFP);
+  cameraFP[3] = 1.0;
+  // Direction of projection
+  double cameraDOP[3] = { 0 };
+  for (int i = 0; i < 3; i++)
+    {
+    cameraDOP[i] = cameraFP[i] - cameraPos[i];
+    }
+  vtkMath::Normalize(cameraDOP);
+  // Camera view up
+  double cameraViewUp[3] = { 0 };
+  camera->GetViewUp(cameraViewUp);
+  vtkMath::Normalize(cameraViewUp);
+
+  // Get modifier labelmap extent in camera coordinate system to know how much we
+  // have to cut through
+  vtkNew<vtkMatrix4x4> cameraToWorldMatrix;
+  double cameraViewRight[3] = { 1, 0, 0 };
+  vtkMath::Cross(cameraDOP, cameraViewUp, cameraViewRight);
+  for (int i = 0; i < 3; i++)
+    {
+    cameraToWorldMatrix->SetElement(i, 3, cameraPos[i]);
+    cameraToWorldMatrix->SetElement(i, 0, cameraViewUp[i]);
+    cameraToWorldMatrix->SetElement(i, 1, cameraViewRight[i]);
+    cameraToWorldMatrix->SetElement(i, 2, cameraDOP[i]);
+    }
+
+  vtkNew<vtkTransform> cameraToWorldTransform;
+  cameraToWorldTransform->SetMatrix(cameraToWorldMatrix);
+  this->InteractionPipeline->ViewToWorldTransform->DeepCopy(cameraToWorldTransform);
+
   // Final visibility handled by superclass in vtkSlicerMarkupsWidgetRepresentation
   Superclass::UpdateInteractionPipeline();
 }

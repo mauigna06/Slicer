@@ -97,6 +97,7 @@ public:
     ComponentRotationHandle,
     ComponentTranslationHandle,
     ComponentScaleHandle,
+    ComponentNormalToViewRotationHandle,
     Component_Last
     };
   struct ComponentInfo

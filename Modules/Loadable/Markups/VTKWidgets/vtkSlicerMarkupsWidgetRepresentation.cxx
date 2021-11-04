@@ -578,16 +578,19 @@ void vtkSlicerMarkupsWidgetRepresentation::UpdateInteractionPipeline()
   if (!markupsNode || markupsNode->GetNumberOfControlPoints() < 1)
     {
     this->InteractionPipeline->Actor->SetVisibility(false);
+    this->InteractionPipeline->ActorNormalToView->SetVisibility(false);
     return;
     }
 
   if (!this->MarkupsDisplayNode)
     {
     this->InteractionPipeline->Actor->SetVisibility(false);
+    this->InteractionPipeline->ActorNormalToView->SetVisibility(false);
     return;
     }
 
   this->InteractionPipeline->Actor->SetVisibility(this->MarkupsDisplayNode->GetHandlesInteractive());
+  this->InteractionPipeline->ActorNormalToView->SetVisibility(this->MarkupsDisplayNode->GetHandlesInteractive());
 
   vtkNew<vtkTransform> handleToWorldTransform;
   handleToWorldTransform->SetMatrix(markupsNode->GetInteractionHandleToWorldMatrix());
@@ -832,6 +835,10 @@ int vtkSlicerMarkupsWidgetRepresentation::RenderOverlay(vtkViewport* viewport)
     {
     count += this->InteractionPipeline->Actor->RenderOverlay(viewport);
     }
+  if (this->InteractionPipeline && this->InteractionPipeline->ActorNormalToView->GetVisibility())
+    {
+    count += this->InteractionPipeline->ActorNormalToView->RenderOverlay(viewport);
+    }
   return count;
 }
 
@@ -896,6 +903,11 @@ vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::MarkupsInterac
   this->HandleToWorldTransformFilter->SetInputConnection(this->Append->GetOutputPort());
   this->HandleToWorldTransformFilter->SetTransform(this->HandleToWorldTransform);
 
+  this->ViewToWorldTransform = vtkSmartPointer<vtkTransform>::New();
+  this->ViewToWorldTransformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+  this->ViewToWorldTransformFilter->SetInputConnection(this->NormalToViewAxisRotationGlypher->GetOutputPort());
+  this->ViewToWorldTransformFilter->SetTransform(this->ViewToWorldTransform);
+
   this->ColorTable = vtkSmartPointer<vtkLookupTable>::New();
 
   vtkNew<vtkCoordinate> coordinate;
@@ -910,6 +922,15 @@ vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::MarkupsInterac
   this->Mapper->UseLookupTableScalarRangeOn();
   this->Mapper->SetTransformCoordinate(coordinate);
 
+  this->MapperNormalToView = vtkSmartPointer<vtkPolyDataMapper2D>::New();
+  this->MapperNormalToView->SetInputConnection(this->ViewToWorldTransformFilter->GetOutputPort());
+  this->MapperNormalToView->SetColorModeToMapScalars();
+  this->MapperNormalToView->ColorByArrayComponent("colorIndex", 0);
+  this->MapperNormalToView->SetLookupTable(this->ColorTable);
+  this->MapperNormalToView->ScalarVisibilityOn();
+  this->MapperNormalToView->UseLookupTableScalarRangeOn();
+  this->MapperNormalToView->SetTransformCoordinate(coordinate);
+
   this->Property = vtkSmartPointer<vtkProperty2D>::New();
   this->Property->SetPointSize(0.0);
   this->Property->SetLineWidth(0.0);
@@ -917,6 +938,10 @@ vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::MarkupsInterac
   this->Actor = vtkSmartPointer<vtkActor2D>::New();
   this->Actor->SetProperty(this->Property);
   this->Actor->SetMapper(this->Mapper);
+
+  this->ActorNormalToView = vtkSmartPointer<vtkActor2D>::New();
+  this->ActorNormalToView->SetProperty(this->Property);
+  this->ActorNormalToView->SetMapper(this->Mapper2);
 
   this->StartFadeAngle = 30;
   this->EndFadeAngle = 20;
@@ -960,14 +985,20 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
   this->AxisRotationTubeFilter->SetCapping(true);
 
   this->RotationHandlePoints = vtkSmartPointer<vtkPolyData>::New();
+  this->NormalToViewRotationHandlePoint = vtkSmartPointer<vtkPolyData>::New();
 
   this->RotationScaleTransform = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
   this->RotationScaleTransform->SetInputData(this->RotationHandlePoints);
   this->RotationScaleTransform->SetTransform(vtkNew<vtkTransform>());
 
+  this->NormalToViewRotationScaleTransform = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
+  this->NormalToViewRotationScaleTransform->SetInputData(this->NormalToViewRotationHandlePoint);
+  this->NormalToViewRotationScaleTransform->SetTransform(vtkNew<vtkTransform>());
+
   this->AxisRotationGlyphSource = vtkSmartPointer <vtkAppendPolyData>::New();
   this->AxisRotationGlyphSource->AddInputConnection(this->AxisRotationHandleSource->GetOutputPort());
   this->AxisRotationGlyphSource->AddInputConnection(this->AxisRotationTubeFilter->GetOutputPort());
+
   this->AxisRotationGlypher = vtkSmartPointer<vtkTensorGlyph>::New();
   this->AxisRotationGlypher->SetInputConnection(this->RotationScaleTransform->GetOutputPort());
   this->AxisRotationGlypher->SetSourceConnection(this->AxisRotationGlyphSource->GetOutputPort());
@@ -975,7 +1006,16 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
   this->AxisRotationGlypher->ExtractEigenvaluesOff();
   this->AxisRotationGlypher->SetInputArrayToProcess(0, 0, 0, 0, "orientation"); // Orientation direction array
 
+  this->NormalToViewAxisRotationGlypher = vtkSmartPointer<vtkTensorGlyph>::New();
+  this->NormalToViewAxisRotationGlypher->SetInputConnection(this->NormalToViewRotationScaleTransform->GetOutputPort());
+  this->NormalToViewAxisRotationGlypher->SetSourceConnection(this->AxisRotationGlyphSource->GetOutputPort());
+  this->NormalToViewAxisRotationGlypher->ScalingOff();
+  this->NormalToViewAxisRotationGlypher->ExtractEigenvaluesOff();
+  this->NormalToViewAxisRotationGlypher->SetInputArrayToProcess(0, 0, 0, 0, "orientation"); // Orientation direction array
+
+
   vtkNew<vtkPoints> points;
+  vtkNew<vtkPoints> normalToViewpoint;
 
   double xRotationHandle[3] = { 0, 1, 1 }; // X-axis
   vtkMath::Normalize(xRotationHandle);
@@ -987,6 +1027,10 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
   vtkMath::Normalize(zRotationHandle);
   points->InsertNextPoint(zRotationHandle);
   this->RotationHandlePoints->SetPoints(points);
+
+  double zRotationHandle[3] = { 1, 1, 0 }; // Z-axis with a sample scale so there is no overlap with the other handles
+  normalToViewpoint->InsertNextPoint(zRotationHandle); // Z-axis will always be the axis normal to the view
+  this->NormalToViewRotationHandlePoint->SetPoints(normalToViewpoint);
 
   vtkNew<vtkDoubleArray> orientationArray;
   orientationArray->SetName("orientation");
@@ -1013,6 +1057,14 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
                                      zRotationMatrix->GetElement(0, 1), zRotationMatrix->GetElement(1, 1), zRotationMatrix->GetElement(2, 1),
                                      zRotationMatrix->GetElement(0, 2), zRotationMatrix->GetElement(1, 2), zRotationMatrix->GetElement(2, 2));
   this->RotationHandlePoints->GetPointData()->AddArray(orientationArray);
+
+  vtkNew<vtkDoubleArray> normalToViewOrientationArray;
+  normalToViewOrientationArray->SetName("orientation");
+  normalToViewOrientationArray->SetNumberOfComponents(9);
+  normalToViewOrientationArray->InsertNextTuple9(zRotationMatrix->GetElement(0, 0), zRotationMatrix->GetElement(1, 0), zRotationMatrix->GetElement(2, 0),
+                                     zRotationMatrix->GetElement(0, 1), zRotationMatrix->GetElement(1, 1), zRotationMatrix->GetElement(2, 1),
+                                     zRotationMatrix->GetElement(0, 2), zRotationMatrix->GetElement(1, 2), zRotationMatrix->GetElement(2, 2));
+  this->NormalToViewRotationHandlePoint->GetPointData()->AddArray(normalToViewOrientationArray);
 
   this->Append->AddInputConnection(this->AxisRotationGlypher->GetOutputPort());
 }
@@ -1130,7 +1182,8 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::UpdateHan
 
   int numberOfHandles = this->RotationHandlePoints->GetNumberOfPoints()
     + this->TranslationHandlePoints->GetNumberOfPoints()
-    + this->ScaleHandlePoints->GetNumberOfPoints();
+    + this->ScaleHandlePoints->GetNumberOfPoints()
+    + this->NormalToViewRotationHandlePoint->GetNumberOfPoints();
   this->ColorTable->SetNumberOfTableValues(numberOfHandles);
   this->ColorTable->SetTableRange(0, numberOfHandles - 1);
 
@@ -1157,6 +1210,28 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::UpdateHan
     rotationColorArray->SetTuple1(i, colorIndex);
     ++colorIndex;
     }
+
+  // Rotation handle normal to view
+  vtkSmartPointer<vtkFloatArray> rotationNormalToViewColorArray = vtkFloatArray::SafeDownCast(
+    this->NormalToViewRotationHandlePoint->GetPointData()->GetAbstractArray("colorIndex"));
+  if (!rotationNormalToViewColorArray)
+    {
+    rotationNormalToViewColorArray = vtkSmartPointer<vtkFloatArray>::New();
+    rotationNormalToViewColorArray->SetName("colorIndex");
+    rotationNormalToViewColorArray->SetNumberOfComponents(1);
+    this->NormalToViewRotationHandlePoint->GetPointData()->AddArray(rotationNormalToViewColorArray);
+    this->NormalToViewRotationHandlePoint->GetPointData()->SetActiveScalars("colorIndex");
+    }
+  rotationNormalToViewColorArray->Initialize();
+  rotationNormalToViewColorArray->SetNumberOfTuples(this->NormalToViewRotationHandlePoint->GetNumberOfPoints());
+  for (int i = 3; i < (this->NormalToViewRotationHandlePoint->GetNumberOfPoints() +3); ++i)
+    {
+    this->GetHandleColor(vtkMRMLMarkupsDisplayNode::ComponentNormalToViewRotationHandle, i, color);
+    this->ColorTable->SetTableValue(colorIndex, color);
+    rotationNormalToViewColorArray->SetTuple1(i, colorIndex);
+    ++colorIndex;
+    }
+
 
   // Translation handles
   vtkSmartPointer<vtkFloatArray> translationColorArray = vtkFloatArray::SafeDownCast(
@@ -1269,6 +1344,10 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::GetHandle
   else if (type == vtkMRMLMarkupsDisplayNode::ComponentScaleHandle)
     {
     handlePoints = this->ScaleHandlePoints;
+    }
+  else if (type == vtkMRMLMarkupsDisplayNode::ComponentNormalToViewRotationHandle)
+    {
+    handlePoints = this->NormalToViewRotationHandlePoint;
     }
 
   vtkIdTypeArray* visibilityArray = nullptr;
@@ -1409,6 +1488,20 @@ vtkSlicerMarkupsWidgetRepresentation::HandleInfoList vtkSlicerMarkupsWidgetRepre
     handleInfoList.push_back(info);
     }
 
+    for (int i = 0; i < this->NormalToViewRotationHandlePoint->GetNumberOfPoints(); ++i)
+    {
+    double handlePositionLocal[3] = { 0 };
+    double handlePositionWorld[3] = { 0 };
+    this->NormalToViewRotationHandlePoint->GetPoint(i, handlePositionLocal);
+    this->NormalToViewRotationScaleTransform->GetTransform()->TransformPoint(handlePositionLocal, handlePositionWorld);
+    this->ViewToWorldTransform->TransformPoint(handlePositionWorld, handlePositionWorld);
+    double color[4] = { 0 };
+    this->GetHandleColor(vtkMRMLMarkupsDisplayNode::ComponentNormalToViewRotationHandle, i, color);
+    HandleInfo info(i, vtkMRMLMarkupsDisplayNode::ComponentNormalToViewRotationHandle, handlePositionWorld, handlePositionLocal, color);
+    handleInfoList.push_back(info);
+    }
+
+
   return handleInfoList;
 }
 
@@ -1420,9 +1513,11 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::SetWidget
   this->RotationScaleTransform->SetTransform(scaleTransform);
   this->TranslationScaleTransform->SetTransform(scaleTransform);
   this->ScaleScaleTransform->SetTransform(scaleTransform);
+  this->NormalToViewRotationScaleTransform->SetTransform(scaleTransform);
   this->AxisRotationGlypher->SetScaleFactor(scale);
   this->AxisTranslationGlypher->SetScaleFactor(scale);
   this->AxisScaleGlypher->SetScaleFactor(scale);
+  this->NormalToViewAxisRotationGlypher->SetScaleFactor(scale);
 }
 
 //----------------------------------------------------------------------
@@ -1477,6 +1572,10 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::GetIntera
   else if (type == vtkMRMLMarkupsDisplayNode::ComponentScaleHandle)
     {
     handles = this->ScaleHandlePoints;
+    }
+  else if (type == vtkMRMLMarkupsDisplayNode::ComponentNormalToViewRotationHandle)
+    {
+    handles = this->TranslationHandlePoints; // TODO
     }
 
   if (!handles)
@@ -1558,6 +1657,23 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::GetIntera
         break;
       }
     }
+  else if (type == vtkMRMLMarkupsDisplayNode::ComponentNormalToViewRotationHandle)
+    {
+    switch (index)
+      {
+      case 0:
+        axisWorld[0] = 1.0;
+        break;
+      case 1:
+        axisWorld[1] = 1.0;
+        break;
+      case 2:
+        axisWorld[2] = 1.0;
+        break;
+      default:
+        break;
+      }
+    }
   double origin[3] = { 0.0, 0.0, 0.0 };
   this->HandleToWorldTransform->TransformVectorAtPoint(origin, axisWorld, axisWorld);
 }
@@ -1587,5 +1703,11 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::GetIntera
     this->ScaleHandlePoints->GetPoint(index, positionWorld);
     this->ScaleScaleTransform->GetTransform()->TransformPoint(positionWorld, positionWorld);
     this->HandleToWorldTransform->TransformPoint(positionWorld, positionWorld);
+    }
+  else if (type == vtkMRMLMarkupsDisplayNode::ComponentNormalToViewRotationHandle)
+    {
+    this->NormalToViewRotationHandlePoint->GetPoint(index, positionWorld);
+    this->NormalToViewRotationScaleTransform->GetTransform()->TransformPoint(positionWorld, positionWorld);
+    this->ViewToWorldTransform->TransformPoint(positionWorld, positionWorld);
     }
 }
