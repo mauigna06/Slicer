@@ -34,6 +34,8 @@
 #include <vtkNew.h>
 #include <vtkTransform.h>
 
+# define M_PI           3.14159265358979323846  /* pi */
+#include <math.h>
 
 //-----------------------------------------------------------------------------
 class qMRMLTransformSlidersPrivate: public Ui_qMRMLTransformSliders
@@ -165,7 +167,10 @@ void qMRMLTransformSliders::setTypeOfTransform(TransformType _typeOfTransform)
     d->ISSlider->setTypeOfTransform(qMRMLLinearTransformSlider::ROTATION_IS);
 
     // Range of Rotation sliders should be fixed to (-180,180)
-    this->setRange(-180.00, 180.00);
+    //this->setRange(-180.00, 180.00);
+    d->LRSlider->setRange(-90.00, 90.00);
+    d->PASlider->setRange(-180.00, 180.00);
+    d->ISSlider->setRange(-180.00, 180.00);
     }
   d->TypeOfTransform = _typeOfTransform;
 }
@@ -240,18 +245,129 @@ void qMRMLTransformSliders::onMRMLTransformNodeModified(vtkObject* caller)
   // or transform type is translation and coordinate reference is global. In these cases the slider range must not be updated:
   // it is not necessary (as the slider will be reset to 0 anyway when another slider is moved) and changing the slider range
   // can even cause instability (transform value increasing continuously) when the user drags the slider using the mouse.
-  if (this->typeOfTransform() == qMRMLTransformSliders::ROTATION
-    || (this->typeOfTransform() == qMRMLTransformSliders::TRANSLATION && coordinateReference() == LOCAL) )
+  if (this->typeOfTransform() == qMRMLTransformSliders::TRANSLATION && coordinateReference() == LOCAL)
     {
     return;
     }
 
   this->updateRangeFromTransform(transformNode);
+
+  if (this->typeOfTransform() == qMRMLTransformSliders::ROTATION)
+  {
+    this->updateAngleValuesFromTransform(transformNode);
+  }
+}
+
+void euler_from_matrix(double matrix[3][3], double result[3])
+{
+    /*eturn Euler angles(syxz) from rotation matrix for specified axis sequence.
+    : Author :
+    `Christoph Gohlke < http://www.lfd.uci.edu/~gohlke/>`_
+
+full library with coplete set of euler triplets(combinations of  s / r x - y - z) at
+http ://www.lfd.uci.edu/~gohlke/code/transformations.py.html
+
+Note that many Euler angle triplets can describe one matrix.
+"""*/
+
+    //epsilon for testing whether a number is close to zero
+    double _EPS = 1e-5;
+
+    // axis sequences for Euler angles
+    double _NEXT_AXIS[4] = { 1, 2, 0, 1 };
+    int firstaxis = 1;
+    int parity = 1;
+    int repetition = 0;
+    int frame = 0;
+
+    int i = firstaxis;
+    int j = _NEXT_AXIS[i + parity];
+    int k = _NEXT_AXIS[i - parity + 1];
+
+    double M[3][3];
+    for (int row = 0; row < 3; row++)
+    {
+        for (int col = 0; col < 3; col++)
+            M[row][col] = matrix[row][col];
+    }
+
+    double ax, ay, az, aux;
+    if (repetition)
+    {
+        double sy = sqrt(M[i][j] * M[i][j] + M[i][k] * M[i][k]);
+        if (sy > _EPS)
+        {
+            ax = atan2(M[i][j], M[i][k]);
+            ay = atan2(sy, M[i][i]);
+            az = atan2(M[j][i], -M[k][i]);
+        }
+        else
+        {
+            ax = atan2(-M[j][k], M[j][j]);
+            ay = atan2(sy, M[i][i]);
+            az = 0.0;
+        }
+    }
+    else
+    {
+        double cy = sqrt(M[i][i] * M[i][i] + M[j][i] * M[j][i]);
+        if (cy > _EPS)
+        {
+            ax = atan2(M[k][j], M[k][k]);
+            ay = atan2(-M[k][i], cy);
+            az = atan2(M[j][i], M[i][i]);
+        }
+        else
+        {
+            ax = atan2(-M[j][k], M[j][j]);
+            ay = atan2(-M[k][i], cy);
+            az = 0.0;
+        }
+    }
+
+    if (parity)
+    {
+        ax = -ax;
+        ay = -ay;
+        az = -az;
+    }
+    if (frame)
+    {
+        aux = ax;
+        ax = az;
+        az = aux;
+    }
+
+    result[0] = ax;
+    result[1] = ay;
+    result[2] = az;
+    return;
+}
+
+void rotationToVtk(double R[3][3], double eulerAnglesDeg_xyz[3])
+{
+    /*
+        Concert a rotation matrix into the Mayavi / Vtk rotation paramaters(pitch, roll, yaw)
+    */
+    double eulerAnglesRad_yxz[3];
+    euler_from_matrix(R, eulerAnglesRad_yxz);
+
+    double eulerAnglesDeg_yxz[3];
+    eulerAnglesDeg_yxz[0] = eulerAnglesRad_yxz[0] * 180 / M_PI;
+    eulerAnglesDeg_yxz[1] = eulerAnglesRad_yxz[1] * 180 / M_PI;
+    eulerAnglesDeg_yxz[2] = eulerAnglesRad_yxz[2] * 180 / M_PI;
+
+    eulerAnglesDeg_xyz[0] = eulerAnglesDeg_yxz[1];
+    eulerAnglesDeg_xyz[1] = eulerAnglesDeg_yxz[0];
+    eulerAnglesDeg_xyz[2] = eulerAnglesDeg_yxz[2];
+
+    return;
 }
 
 // --------------------------------------------------------------------------
-void qMRMLTransformSliders::updateRangeFromTransform(vtkMRMLTransformNode* transformNode)
+void qMRMLTransformSliders::updateAngleValuesFromTransform(vtkMRMLTransformNode* transformNode)
 {
+  Q_D(qMRMLTransformSliders);
   vtkNew<vtkTransform> transform;
   qMRMLUtils::getTransformInCoordinateSystem(transformNode,
       this->coordinateReference() == qMRMLTransformSliders::GLOBAL, transform.GetPointer());
@@ -260,16 +376,52 @@ void qMRMLTransformSliders::updateRangeFromTransform(vtkMRMLTransformNode* trans
   Q_ASSERT(matrix);
   if (!matrix) { return; }
 
-  QPair<double, double> minmax = this->extractMinMaxTranslationValue(matrix, 0.0);
-  if(minmax.first < this->minimum())
+  double matrix3x3[3][3];
+  for (int row = 0; row < 3; row++)
+    for (int col = 0; col < 3; col++)
+      matrix3x3[col][row] = matrix->GetElement(row,col);//Transpose since it's a rotation
+
+  double angles_deg_xyz[3];
+  rotationToVtk(matrix3x3, angles_deg_xyz);
+
+  bool blocked = d->LRSlider->blockSignals(true);
+  d->LRSlider->setValue(angles_deg_xyz[0]);
+  d->LRSlider->blockSignals(blocked);
+
+  blocked = d->PASlider->blockSignals(true);
+  d->PASlider->setValue(angles_deg_xyz[1]);
+  d->PASlider->blockSignals(blocked);
+
+  blocked = d->ISSlider->blockSignals(true);
+  d->ISSlider->setValue(angles_deg_xyz[2]);
+  d->ISSlider->blockSignals(blocked);
+}
+
+// --------------------------------------------------------------------------
+void qMRMLTransformSliders::updateRangeFromTransform(vtkMRMLTransformNode* transformNode)
+{
+    Q_D(qMRMLTransformSliders);
+    vtkNew<vtkTransform> transform;
+    qMRMLUtils::getTransformInCoordinateSystem(transformNode,
+        this->coordinateReference() == qMRMLTransformSliders::GLOBAL, transform.GetPointer());
+
+    vtkMatrix4x4* matrix = transform->GetMatrix();
+    Q_ASSERT(matrix);
+    if (!matrix) { return; }
+
+    if (this->typeOfTransform() == qMRMLTransformSliders::TRANSLATION)
     {
-    minmax.first = minmax.first - 0.3 * fabs(minmax.first);
-    this->setMinimum(minmax.first);
-    }
-  if(minmax.second > this->maximum())
-    {
-    minmax.second = minmax.second + 0.3 * fabs(minmax.second);
-    this->setMaximum(minmax.second);
+        QPair<double, double> minmax = this->extractMinMaxTranslationValue(matrix, 0.0);
+        if (minmax.first < this->minimum())
+        {
+            minmax.first = minmax.first - 0.3 * fabs(minmax.first);
+            this->setMinimum(minmax.first);
+        }
+        if (minmax.second > this->maximum())
+        {
+            minmax.second = minmax.second + 0.3 * fabs(minmax.second);
+            this->setMaximum(minmax.second);
+        }
     }
 }
 
