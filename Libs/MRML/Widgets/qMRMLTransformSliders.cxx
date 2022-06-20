@@ -325,12 +325,12 @@ Note that many Euler angle triplets can describe one matrix.
         }
     }
 
-    if (parity)
-    {
-        ax = -ax;
-        ay = -ay;
-        az = -az;
-    }
+    //if (parity)
+    //{
+    //    ax = -ax;
+    //    ay = -ay;
+    //    az = -az;
+    //}
     if (frame)
     {
         aux = ax;
