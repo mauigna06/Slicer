@@ -27,8 +27,12 @@
 // MRML includes
 #include "qMRMLSliderWidget.h"
 
+# define M_PI           3.14159265358979323846  /* pi */
+#include <math.h>
+
 class vtkMRMLTransformNode;
 class vtkMatrix4x4;
+class vtkMatrix3x3;
 class qMRMLLinearTransformSliderPrivate;
 
 class QMRML_WIDGETS_EXPORT qMRMLLinearTransformSlider : public qMRMLSliderWidget
@@ -37,6 +41,8 @@ class QMRML_WIDGETS_EXPORT qMRMLLinearTransformSlider : public qMRMLSliderWidget
   QVTK_OBJECT
   Q_PROPERTY(TransformType TypeOfTransform READ typeOfTransform WRITE setTypeOfTransform)
   Q_ENUMS(TransformType)
+  Q_PROPERTY(RotationType TypeOfRotation READ typeOfRotation WRITE setTypeOfRotation)
+  Q_ENUMS(RotationType)
   Q_PROPERTY(CoordinateReferenceType CoordinateReference READ coordinateReference WRITE setCoordinateReference)
   Q_ENUMS(CoordinateReferenceType)
 
@@ -57,6 +63,14 @@ public:
   };
   void setTypeOfTransform(TransformType typeOfTransform);
   TransformType typeOfTransform() const;
+
+  enum RotationType
+  {
+      EXTRINSIC_ANGLES,
+      INTRINSIC_ANGLES//yaw,roll,pitch
+  };
+  void setTypeOfRotation(RotationType typeOfRotation);
+  RotationType typeOfRotation() const;
 
   ///
   /// Convenience method allowing to get which family of transform is set

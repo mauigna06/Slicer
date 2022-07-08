@@ -44,6 +44,8 @@ class QMRML_WIDGETS_EXPORT qMRMLTransformSliders : public qMRMLWidget
   Q_ENUMS(CoordinateReferenceType)
   Q_PROPERTY(TransformType TypeOfTransform READ typeOfTransform WRITE setTypeOfTransform)
   Q_ENUMS(TransformType)
+  //Q_PROPERTY(RotationType TypeOfRotation READ typeOfRotation WRITE setTypeOfRotation)
+  //Q_ENUMS(RotationType)
   Q_PROPERTY(QString LRLabel READ lrLabel WRITE setLRLabel)
   Q_PROPERTY(QString PALabel READ paLabel WRITE setPALabel)
   Q_PROPERTY(QString ISLabel READ isLabel WRITE setISLabel)
@@ -73,6 +75,16 @@ public:
   enum TransformType { ROTATION, TRANSLATION };
   void setTypeOfTransform(TransformType typeOfTransform);
   TransformType typeOfTransform() const;
+
+  ///
+/// Set/Get TypeOfRotation
+/// By default, the selector coordinate system will be set to TRANSLATION
+  enum RotationType
+  {
+      EXTRINSIC_ANGLES,
+      INTRINSIC_ANGLES//yaw,roll,pitch
+  };
+  void setTypeOfRotation(RotationType typeOfRotation);
 
   ///
   /// Set/Get Title of the group box
@@ -171,8 +183,6 @@ protected:
   /// change the slider min/max values accordingly.
   /// Needed if the matrix changed externally (python, cli, etc.)
   void updateRangeFromTransform(vtkMRMLTransformNode* transformNode);
-
-  void updateAngleValuesFromTransform(vtkMRMLTransformNode* transformNode);
 
   ///
   /// Extract min/max translation values from the transform matrix.
