@@ -1175,27 +1175,13 @@ void vtkSlicerMarkupsWidget::TranslateWidget(double eventPos[2])
   else if (rep3d)
     {
     // 3D view
-    double eventPos_Display[2] = { 0. };
-
-    eventPos_Display[0] = this->LastEventPosition[0];
-    eventPos_Display[1] = this->LastEventPosition[1];
-
     if (!rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, lastEventPos_World, eventPos_World,
-      orientation_World))
+      this->LastEventPosition, lastEventPos_World, orientation_World))
       {
       return;
       }
-    lastEventPos_World[0] = eventPos_World[0];
-    lastEventPos_World[1] = eventPos_World[1];
-    lastEventPos_World[2] = eventPos_World[2];
-
-    eventPos_Display[0] = eventPos[0];
-    eventPos_Display[1] = eventPos[1];
-
     if (!rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, lastEventPos_World, eventPos_World,
-      orientation_World))
+      eventPos, lastEventPos_World, eventPos_World, orientation_World))
       {
       return;
       }
@@ -1374,12 +1360,8 @@ void vtkSlicerMarkupsWidget::RotateWidget(double eventPos[2])
     }
   else if (rep3d)
     {
-    eventPos_Display[0] = this->LastEventPosition[0];
-    eventPos_Display[1] = this->LastEventPosition[1];
-
     if (rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, eventPos_World, lastEventPos_World,
-      orientation_World))
+      this->LastEventPosition, lastEventPos_World, orientation_World))
       {
       for (int i = 0; i < 3; i++)
         {
@@ -1392,10 +1374,8 @@ void vtkSlicerMarkupsWidget::RotateWidget(double eventPos[2])
       }
     eventPos_Display[0] = eventPos[0];
     eventPos_Display[1] = eventPos[1];
-
     if (!rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, eventPos_World, eventPos_World,
-      orientation_World))
+      eventPos_Display, eventPos_World, eventPos_World, orientation_World))
       {
       return;
       }
@@ -2062,8 +2042,8 @@ int vtkSlicerMarkupsWidget::GetActiveComponentIndex()
 
 //-----------------------------------------------------------------------------
 vtkMRMLSelectionNode* vtkSlicerMarkupsWidget::selectionNode()
-  {
+{
   return vtkMRMLSelectionNode::SafeDownCast(
     this->GetMarkupsNode()->GetScene()->GetNodeByID("vtkMRMLSelectionNodeSingleton"));
 
-  }
+}
