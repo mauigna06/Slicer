@@ -109,6 +109,7 @@ public:
   QAction* CurrentItemHandleVisibilityAction{nullptr};
   QAction* ToggleCurrentItemTranslateHandleVisible{nullptr};
   QAction* ToggleCurrentItemRotateHandleVisible{nullptr};
+  QAction* ToggleCurrentItemViewRotateHandleVisible{nullptr};
   QAction* ToggleCurrentItemScaleHandleVisible{nullptr};
 
   QMenu* HandleVisibilityMenu{nullptr};
@@ -244,6 +245,11 @@ void qSlicerSubjectHierarchyMarkupsPluginPrivate::init()
   this->ToggleCurrentItemRotateHandleVisible->setProperty(INTERACTION_HANDLE_TYPE_PROPERTY, vtkMRMLMarkupsDisplayNode::ComponentRotationHandle);
   QObject::connect(this->ToggleCurrentItemRotateHandleVisible, SIGNAL(triggered()), q, SLOT(toggleCurrentItemHandleTypeVisibility()));
 
+  this->ToggleCurrentItemViewRotateHandleVisible = new QAction("ViewRotate");
+  this->ToggleCurrentItemViewRotateHandleVisible->setCheckable(true);
+  this->ToggleCurrentItemViewRotateHandleVisible->setProperty(INTERACTION_HANDLE_TYPE_PROPERTY, vtkMRMLMarkupsDisplayNode::ComponentViewRotationHandle);
+  QObject::connect(this->ToggleCurrentItemViewRotateHandleVisible, SIGNAL(triggered()), q, SLOT(toggleCurrentItemHandleTypeVisibility()));
+
   this->ToggleCurrentItemScaleHandleVisible = new QAction("Scale");
   this->ToggleCurrentItemScaleHandleVisible->setCheckable(true);
   this->ToggleCurrentItemScaleHandleVisible->setProperty(INTERACTION_HANDLE_TYPE_PROPERTY, vtkMRMLMarkupsDisplayNode::ComponentScaleHandle);
@@ -252,6 +258,7 @@ void qSlicerSubjectHierarchyMarkupsPluginPrivate::init()
   this->CurrentItemHandleVisibilityMenu = new QMenu();
   this->CurrentItemHandleVisibilityMenu->addAction(this->ToggleCurrentItemTranslateHandleVisible);
   this->CurrentItemHandleVisibilityMenu->addAction(this->ToggleCurrentItemRotateHandleVisible);
+  this->CurrentItemHandleVisibilityMenu->addAction(this->ToggleCurrentItemViewRotateHandleVisible);
   this->CurrentItemHandleVisibilityMenu->addAction(this->ToggleCurrentItemScaleHandleVisible);
 
   this->CurrentItemHandleVisibilityAction = new QAction("Interaction options");
@@ -657,6 +664,7 @@ void qSlicerSubjectHierarchyMarkupsPlugin::showViewContextMenuActionsForItem(vtk
   bool pointActionsDisabled =
     componentType == vtkMRMLMarkupsDisplayNode::ComponentTranslationHandle ||
     componentType == vtkMRMLMarkupsDisplayNode::ComponentRotationHandle ||
+    componentType == vtkMRMLMarkupsDisplayNode::ComponentViewRotationHandle ||
     componentType == vtkMRMLMarkupsDisplayNode::ComponentScaleHandle ||
     componentType == vtkMRMLMarkupsDisplayNode::ComponentPlane ||
     componentType == vtkMRMLMarkupsROIDisplayNode::ComponentROI;

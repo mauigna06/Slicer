@@ -144,6 +144,7 @@ protected:
   virtual void TranslateWidget(double eventPos[2]);
   virtual void ScaleWidget(double eventPos[2]);
   virtual void RotateWidget(double eventPos[2]);
+  virtual void ViewRotateWidget(double eventPos[2]);
 
   bool IsAnyControlPointLocked();
 
@@ -172,6 +173,7 @@ protected:
   virtual bool ProcessControlPointMoveStart(vtkMRMLInteractionEventData* eventData);
   virtual bool ProcessWidgetTranslateStart(vtkMRMLInteractionEventData* eventData);
   virtual bool ProcessWidgetRotateStart(vtkMRMLInteractionEventData* eventData);
+  virtual bool ProcessWidgetViewRotateStart(vtkMRMLInteractionEventData* eventData);
   virtual bool ProcessWidgetScaleStart(vtkMRMLInteractionEventData* eventData);
   virtual bool ProcessEndMouseDrag(vtkMRMLInteractionEventData* eventData);
   virtual bool ProcessWidgetReset(vtkMRMLInteractionEventData* eventData);

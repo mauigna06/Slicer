@@ -90,6 +90,7 @@ public:
     WidgetStateOnWidget, ///< mouse pointer is over the widget, clicking will add a point or manipulate the line
     WidgetStateTranslate, ///< mouse move transforms the entire widget
     WidgetStateRotate, ///< mouse move transforms the entire widget
+    WidgetStateViewRotate, ///< mouse move transforms the entire widget
     WidgetStateScale, ///< mouse move transforms the entire widget
     WidgetStateUser ///< this is a starting index that can be used for widget-specific states
   };
@@ -103,6 +104,8 @@ public:
     WidgetEventTranslateEnd,
     WidgetEventRotateStart,
     WidgetEventRotateEnd,
+    WidgetEventViewRotateStart,
+    WidgetEventViewRotateEnd,
     WidgetEventScaleStart,
     WidgetEventScaleEnd,
     // MRML events

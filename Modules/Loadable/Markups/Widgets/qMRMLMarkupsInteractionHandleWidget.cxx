@@ -66,6 +66,7 @@ void qMRMLMarkupsInteractionHandleWidgetPrivate::init()
   QObject::connect(this->rotateXCheckBox, SIGNAL(clicked()), q, SLOT(updateMRMLFromWidget()));
   QObject::connect(this->rotateYCheckBox, SIGNAL(clicked()), q, SLOT(updateMRMLFromWidget()));
   QObject::connect(this->rotateZCheckBox, SIGNAL(clicked()), q, SLOT(updateMRMLFromWidget()));
+  QObject::connect(this->rotateViewPlaneCheckBox, SIGNAL(clicked()), q, SLOT(updateMRMLFromWidget()));
   QObject::connect(this->scaleVisibilityCheckBox, SIGNAL(clicked()), q, SLOT(updateMRMLFromWidget()));
   QObject::connect(this->scaleXCheckBox, SIGNAL(clicked()), q, SLOT(updateMRMLFromWidget()));
   QObject::connect(this->scaleYCheckBox, SIGNAL(clicked()), q, SLOT(updateMRMLFromWidget()));
@@ -84,6 +85,7 @@ void qMRMLMarkupsInteractionHandleWidgetPrivate::init()
   this->rotateXCheckBox->hide();
   this->rotateYCheckBox->hide();
   this->rotateZCheckBox->hide();
+  this->rotateViewPlaneCheckBox->hide();
   this->scaleXCheckBox->hide();
   this->scaleYCheckBox->hide();
   this->scaleZCheckBox->hide();
@@ -139,6 +141,7 @@ void qMRMLMarkupsInteractionHandleWidget::updateWidgetFromMRML()
   d->rotateXCheckBox->setEnabled(d->DisplayNode != nullptr);
   d->rotateYCheckBox->setEnabled(d->DisplayNode != nullptr);
   d->rotateZCheckBox->setEnabled(d->DisplayNode != nullptr);
+  d->rotateViewPlaneCheckBox->setEnabled(d->DisplayNode != nullptr);
   d->scaleVisibilityCheckBox->setEnabled(d->DisplayNode != nullptr);
   d->scaleXCheckBox->setEnabled(d->DisplayNode != nullptr);
   d->scaleYCheckBox->setEnabled(d->DisplayNode != nullptr);
