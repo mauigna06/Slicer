@@ -1510,12 +1510,8 @@ void vtkSlicerMarkupsWidget::ViewRotateWidget(double eventPos[2])
     }
   else if (rep3d)
     {
-    eventPos_Display[0] = this->LastEventPosition[0];
-    eventPos_Display[1] = this->LastEventPosition[1];
-
     if (rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, eventPos_World, lastEventPos_World,
-      orientation_World))
+      this->LastEventPosition, lastEventPos_World, orientation_World))
       {
       for (int i = 0; i < 3; i++)
         {
@@ -1528,10 +1524,8 @@ void vtkSlicerMarkupsWidget::ViewRotateWidget(double eventPos[2])
       }
     eventPos_Display[0] = eventPos[0];
     eventPos_Display[1] = eventPos[1];
-
     if (!rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, eventPos_World, eventPos_World,
-      orientation_World))
+      eventPos_Display, eventPos_World, eventPos_World, orientation_World))
       {
       return;
       }
