@@ -164,6 +164,7 @@ protected:
 
   static void OnViewModified(vtkObject* caller, unsigned long eid, void* clientData, void* callData);
 
+  class vtkViewModifiedEventCallbackCommand;
   class ControlPointsPipeline
   {
   public:
@@ -356,6 +357,8 @@ protected:
 
   virtual void SetupInteractionPipeline();
   MarkupsInteractionPipeline* InteractionPipeline;
+
+  vtkNew<vtkViewModifiedEventCallbackCommand> viewCallback;
 
   /// Update the interaction pipeline
   virtual void UpdateInteractionPipeline();
