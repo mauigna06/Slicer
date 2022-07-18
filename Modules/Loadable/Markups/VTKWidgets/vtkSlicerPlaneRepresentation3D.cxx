@@ -74,6 +74,12 @@ vtkSlicerPlaneRepresentation3D::vtkSlicerPlaneRepresentation3D()
   this->ArrowGlypher->SetScaleModeToDataScalingOff();
   this->ArrowGlypher->SetInputArrayToProcess(1, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, vtkDataSetAttributes::SCALARS);
 
+  vtkNew<vtkTransform>  identity;
+  this->OutlinePolyData->SetTransform(identity);
+  vtkNew<vtkPolyData> outlinePolyData;
+  this->OutlinePolyData->SetInputData(outlinePolyData);
+
+  this->PlaneOutlineFilter->SetInputConnection(this->OutlinePolyData->GetOutputPort());
   this->PlaneOutlineFilter->CappingOff();
 
   // Color filters
@@ -248,7 +254,7 @@ void vtkSlicerPlaneRepresentation3D::BuildPlane()
   vtkNew<vtkPolyData> outlinePolyData;
   outlinePolyData->SetPoints(planeBorderPoints_World);
   outlinePolyData->SetLines(lines);
-  this->PlaneOutlineFilter->SetInputDataObject(outlinePolyData);
+  this->OutlinePolyData->SetInputData(outlinePolyData);
 
   // Update the plane fill
   this->PlaneFillFilter->SetOrigin(planeCornerPoints_World->GetPoint(0));
@@ -491,7 +497,7 @@ void vtkSlicerPlaneRepresentation3D::CanInteractWithPlane(
     double dist2Display = VTK_DOUBLE_MAX;
     double closestPointDisplay[3] = { 0.0, 0.0, 0.0 };
 
-    vtkPolyData* planeOutline = vtkPolyData::SafeDownCast(this->PlaneOutlineFilter->GetInputDataObject(0, 0));
+    vtkPolyData* planeOutline = vtkPolyData::SafeDownCast(this->OutlinePolyData->GetInputDataObject(0, 0));
     if (planeOutline)
       {
       for (int pointIndex = 0; pointIndex < planeOutline->GetNumberOfPoints(); ++pointIndex)

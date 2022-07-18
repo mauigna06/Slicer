@@ -94,6 +94,7 @@ protected:
   vtkNew<vtkArrayCalculator> PlaneOutlineColorFilter;
   vtkNew<vtkArrayCalculator> PlaneFillColorFilter;
   vtkNew<vtkAppendPolyData>  Append;
+  vtkNew<vtkTransformPolyDataFilter> OutlinePolyData;
 
   vtkNew<vtkActor>           PlaneActor;
   vtkNew<vtkActor>           PlaneOccludedActor;
