@@ -92,6 +92,8 @@ public:
   /// Add/update a point preview to the current active Markup at the specified position.
   void UpdatePreviewPoint(vtkMRMLInteractionEventData* eventData, const char* associatedNodeID, int positionStatus);
 
+  //void UpdateViewTransform(vtkMRMLInteractionEventData* eventData);
+
   /// Remove the point preview to the current active Markup.
   /// Returns true is preview point existed and now it is removed.
   bool RemovePreviewPoint();
@@ -122,6 +124,8 @@ public:
   // Allows the widget to request a cursor shape
   int GetMouseCursor() override;
 
+  //vtkCamera* GetCamera();
+  //vtkMRMLAbstractViewNode* GetViewNode();
   vtkMRMLMarkupsNode* GetMarkupsNode();
   vtkMRMLMarkupsDisplayNode* GetMarkupsDisplayNode();
   int GetActiveControlPoint();
@@ -145,6 +149,7 @@ protected:
   virtual void ScaleWidget(double eventPos[2]);
   virtual void RotateWidget(double eventPos[2]);
   virtual void ViewRotateWidget(double eventPos[2]);
+  virtual void UpdateViewTransform(double eventPos[2]);
 
   bool IsAnyControlPointLocked();
 
