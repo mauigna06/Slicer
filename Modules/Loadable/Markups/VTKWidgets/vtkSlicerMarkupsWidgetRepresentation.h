@@ -113,6 +113,9 @@ public:
   virtual void SetMarkupsDisplayNode(vtkMRMLMarkupsDisplayNode *markupsDisplayNode);
   virtual vtkMRMLMarkupsDisplayNode* GetMarkupsDisplayNode();
   virtual vtkMRMLMarkupsNode* GetMarkupsNode();
+  virtual vtkMRMLAbstractViewNode* GetViewNode();
+  virtual vtkTransform* GetViewTransform();
+  virtual vtkCamera* GetViewCamera();
 
   /// Compute the center of rotation and update it in the Markups node.
   virtual void UpdateCenterOfRotation();
@@ -161,8 +164,6 @@ protected:
 
   // Convert glyph types from display node enums to 2D glyph source enums
   static int GetGlyphTypeSourceFromDisplay(int glyphTypeDisplay);
-
-  static void OnViewModified(vtkObject* caller, unsigned long eid, void* clientData, void* callData);
 
   class vtkViewModifiedEventCallbackCommand;
   class ControlPointsPipeline
@@ -357,8 +358,6 @@ protected:
 
   virtual void SetupInteractionPipeline();
   MarkupsInteractionPipeline* InteractionPipeline;
-
-  vtkNew<vtkViewModifiedEventCallbackCommand> viewCallback;
 
   /// Update the interaction pipeline
   virtual void UpdateInteractionPipeline();

@@ -68,25 +68,6 @@ static const double INTERACTION_TRANSLATION_TIP_LENGTH = INTERACTION_TRANSLATION
 static const double INTERACTION_TRANSLATION_HANDLE_SHAFT_RADIUS = INTERACTION_TRANSLATION_TIP_RADIUS * 0.5; // Size of the tube
 static const double INTERACTION_TRANSLATION_HANDLE_SHAFT_LENGTH = INTERACTION_HANDLE_RADIUS * 12.8; // Length of the translation handle
 
-
-//-----------------------------------------------------------------------------
-
-class vtkSlicerMarkupsWidgetRepresentation::vtkViewModifiedEventCallbackCommand : public vtkCallbackCommand
-{
-public:
-  static vtkViewModifiedEventCallbackCommand *New()
-    {
-    return new vtkViewModifiedEventCallbackCommand;
-    }
-  /// Segment editor widget observing the event
-  //QPointer<qMRMLSegmentEditorWidget> EditorWidget;
-  /// Slice widget or 3D widget
-  //QPointer<qMRMLWidget> ViewWidget;
-  vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline* InteractionPipeline;
-  vtkWeakPointer<vtkRenderer> Renderer;
-};
-
-
 //----------------------------------------------------------------------
 vtkSlicerMarkupsWidgetRepresentation::ControlPointsPipeline::ControlPointsPipeline()
 {
@@ -179,111 +160,7 @@ vtkSlicerMarkupsWidgetRepresentation::vtkSlicerMarkupsWidgetRepresentation()
 
   this->InteractionPipeline = nullptr;
 
-
-
-  vtkMRMLSliceNode *sliceNode = vtkMRMLSliceNode::SafeDownCast(this->ViewNode);
-  vtkMRMLViewNode *threeDViewNode = vtkMRMLViewNode::SafeDownCast(this->ViewNode);
-
-  this->viewCallback->InteractionPipeline = this->InteractionPipeline;
-  this->viewCallback->Renderer = this->Renderer;
-  //viewModifiedCallbackCommand->threeDViewNode = threeDViewNode;
-  //viewModifiedCallbackCommand->viewTransform = this->InteractionPipeline->ViewTransform;
-  this->viewCallback->SetClientData( reinterpret_cast<void*>(this->viewCallback.GetPointer()) );
-  this->viewCallback->SetCallback( vtkSlicerMarkupsWidgetRepresentation::OnViewModified );
-
-  if (sliceNode)
-  {
-    this->InteractionPipeline->ViewObserverTag = sliceNode->AddObserver(vtkCommand::ModifiedEvent, this->viewCallback.GetPointer());
-  }
-  else
-  {
-    this->InteractionPipeline->ViewObserverTag = 0;
-  }
-
-  if (threeDViewNode)
-  {
-    //vtkCamera *camera = this->Renderer->IsActiveCameraCreated() ? this->Renderer->GetActiveCamera() : nullptr;
-    vtkCamera *camera = this->Renderer->GetActiveCamera();
-    if (camera)
-    {
-      //vtkEventBroker::GetInstance()->AddObservation (
-      //camera, vtkCommand::ModifiedEvent, this, viewModifiedCallbackCommand.GetPointer() );
-      this->InteractionPipeline->ViewObserverTag = camera->AddObserver(vtkCommand::ModifiedEvent, this->viewCallback.GetPointer());
-    }
-    else
-    {
-      this->InteractionPipeline->ViewObserverTag = 0;
-    }
-  }
-
 }
-
-void vtkSlicerMarkupsWidgetRepresentation::OnViewModified(vtkObject* caller,
-                                        unsigned long eid,
-                                        void* clientData,
-                                        void* vtkNotUsed(callData))
-{
-  vtkSlicerMarkupsWidgetRepresentation::vtkViewModifiedEventCallbackCommand* callbackCommand = (
-    reinterpret_cast<vtkSlicerMarkupsWidgetRepresentation::vtkViewModifiedEventCallbackCommand*>(clientData)
-  );
-  vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline* InteractionPipeline = callbackCommand->InteractionPipeline;
-  vtkRenderer* Renderer = callbackCommand->Renderer;
-  vtkMRMLViewNode *threeDViewNode = vtkMRMLViewNode::SafeDownCast(caller);
-  vtkMRMLSliceNode *sliceNode = vtkMRMLSliceNode::SafeDownCast(caller);
-
-  if (sliceNode)
-  {
-    vtkNew<vtkTransform> viewTransform;
-    viewTransform->PostMultiply();
-    viewTransform->Concatenate(sliceNode->GetSliceToRAS());
-
-    double pos[3] = {0,0,0};
-    viewTransform->TransformPoint(pos, pos);
-    viewTransform->Translate(-pos[0],-pos[1],-pos[2]);
-
-    double origin[3] = {0,0,0};
-    InteractionPipeline->HandleToWorldTransform->TransformPoint(origin, origin);
-    viewTransform->Translate(origin);
-
-    InteractionPipeline->ViewTransform->DeepCopy(viewTransform);
-  }
-  if (threeDViewNode)
-  {
-    vtkNew<vtkMatrix4x4> cameraMatrix;
-
-    //getColumnsOfTheMatrix
-    double viewUp[3];
-    Renderer->GetActiveCamera()->GetViewUp(viewUp);
-    double normal[3];
-    Renderer->GetActiveCamera()->GetViewPlaneNormal(normal);
-    double camRight[3];
-    vtkMath::Cross(normal, viewUp, camRight);
-    vtkMath::Normalize(camRight);
-    double pos[3] = {0,0,0};
-    InteractionPipeline->HandleToWorldTransform->TransformPoint(pos, pos);
-
-    cameraMatrix->SetElement(0,0,camRight[0]);
-    cameraMatrix->SetElement(1,0,camRight[1]);
-    cameraMatrix->SetElement(2,0,camRight[2]);
-    cameraMatrix->SetElement(0,1,normal[0]);
-    cameraMatrix->SetElement(1,1,normal[1]);
-    cameraMatrix->SetElement(2,1,normal[2]);
-    cameraMatrix->SetElement(0,2,viewUp[0]);
-    cameraMatrix->SetElement(1,2,viewUp[1]);
-    cameraMatrix->SetElement(2,2,viewUp[2]);
-
-    vtkNew<vtkTransform> viewTransform;
-    viewTransform->PostMultiply();
-    viewTransform->SetMatrix(cameraMatrix);
-    viewTransform->Translate(pos);
-    InteractionPipeline->ViewTransform->DeepCopy(viewTransform);
-  }
-}
-
-
-
-
-
 
 
 //----------------------------------------------------------------------
@@ -367,7 +244,9 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
     this->FullAxisRotationArcSource = vtkSmartPointer<vtkArcSource>::New();
     this->FullAxisRotationArcSource->SetUseNormalAndAngle(true);
     this->FullAxisRotationArcSource->SetAngle(360);
-    this->FullAxisRotationArcSource->SetPolarVector(0, 0, 0);
+    this->FullAxisRotationArcSource->SetPolarVector(
+        INTERACTION_ROTATION_ARC_RADIUS / sqrt(2) - INTERACTION_ROTATION_ARC_RADIUS,
+        INTERACTION_ROTATION_ARC_RADIUS / sqrt(2), 0);
     this->FullAxisRotationArcSource->SetNormal(0, 1, 0);
     this->FullAxisRotationArcSource->SetResolution(16);
 
@@ -378,7 +257,7 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
     this->AxisRotationTubeFilter->SetCapping(true);
 
     this->FullAxisRotationTubeFilter = vtkSmartPointer<vtkTubeFilter>::New();
-    this->FullAxisRotationTubeFilter->SetInputConnection(this->AxisRotationArcSource->GetOutputPort());
+    this->FullAxisRotationTubeFilter->SetInputConnection(this->FullAxisRotationArcSource->GetOutputPort());
     this->FullAxisRotationTubeFilter->SetRadius(INTERACTION_ROTATION_ARC_TUBE_RADIUS);
     this->FullAxisRotationTubeFilter->SetNumberOfSides(16);
     this->FullAxisRotationTubeFilter->SetCapping(false);
@@ -417,7 +296,9 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
     this->ViewRotationScaleTransform->SetTransform(vtkNew<vtkTransform>());
 
     this->AxisRotationGlyphSource = vtkSmartPointer <vtkAppendPolyData>::New();
+    //append the dot inside the arc
     this->AxisRotationGlyphSource->AddInputConnection(this->AxisRotationHandleSource->GetOutputPort());
+    //append arc
     this->AxisRotationGlyphSource->AddInputConnection(this->AxisRotationTubeFilter->GetOutputPort());
     this->AxisRotationGlyphSource->AddInputConnection(this->AxisRotationInterorAngleTubeFilter->GetOutputPort());
     this->AxisRotationGlypher = vtkSmartPointer<vtkTensorGlyph>::New();
@@ -428,7 +309,7 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
     this->AxisRotationGlypher->SetInputArrayToProcess(0, 0, 0, 0, "orientation"); // Orientation direction array
 
     this->AxisRotationGlyphSource2 = vtkSmartPointer <vtkAppendPolyData>::New();
-    this->AxisRotationGlyphSource2->AddInputConnection(this->AxisRotationHandleSource->GetOutputPort());
+    //this->AxisRotationGlyphSource2->AddInputConnection(this->AxisRotationHandleSource->GetOutputPort());
     this->AxisRotationGlyphSource2->AddInputConnection(this->FullAxisRotationTubeFilter->GetOutputPort());
     //this->AxisRotationGlyphSource2->AddInputConnection(this->AxisRotationInterorAngleTubeFilter->GetOutputPort());
     this->ViewAxisRotationGlypher = vtkSmartPointer<vtkTensorGlyph>::New();
@@ -487,9 +368,19 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::CreateRot
     vtkNew<vtkDoubleArray> viewOrientationArray;
     viewOrientationArray->SetName("orientation");
     viewOrientationArray->SetNumberOfComponents(9);
-    viewOrientationArray->InsertNextTuple9(yRotationMatrix->GetElement(0, 0), yRotationMatrix->GetElement(1, 0), yRotationMatrix->GetElement(2, 0),
-        yRotationMatrix->GetElement(0, 1), yRotationMatrix->GetElement(1, 1), yRotationMatrix->GetElement(2, 1),
-        yRotationMatrix->GetElement(0, 2), yRotationMatrix->GetElement(1, 2), yRotationMatrix->GetElement(2, 2));
+    vtkNew<vtkTransform> identityRotationOrientation;
+    vtkMatrix4x4* identityRotationMatrix = identityRotationOrientation->GetMatrix();
+    viewOrientationArray->InsertNextTuple9(
+      identityRotationMatrix->GetElement(0, 0),
+      identityRotationMatrix->GetElement(1, 0),
+      identityRotationMatrix->GetElement(2, 0),
+      identityRotationMatrix->GetElement(0, 1),
+      identityRotationMatrix->GetElement(1, 1),
+      identityRotationMatrix->GetElement(2, 1),
+      identityRotationMatrix->GetElement(0, 2),
+      identityRotationMatrix->GetElement(1, 2),
+      identityRotationMatrix->GetElement(2, 2)
+    );
     this->ViewPoint->GetPointData()->AddArray(viewOrientationArray);
 
     vtkNew<vtkIdTypeArray> visibilityArray;
@@ -759,7 +650,7 @@ void vtkSlicerMarkupsWidgetRepresentation::MarkupsInteractionPipeline::UpdateHan
     rotationViewColorArray->SetNumberOfTuples(this->ViewPoint->GetNumberOfPoints());
     for (int i = 0; i < this->ViewPoint->GetNumberOfPoints(); ++i)
     {
-        this->GetHandleColor(vtkMRMLMarkupsDisplayNode::ComponentViewRotationHandle, i, color);
+        this->GetHandleColor(vtkMRMLMarkupsDisplayNode::ComponentViewRotationHandle, 3, color);
         this->ColorTable->SetTableValue(colorIndex, color);
         rotationViewColorArray->SetTuple1(i, colorIndex);
         ++colorIndex;
@@ -1468,6 +1359,33 @@ vtkMRMLMarkupsNode *vtkSlicerMarkupsWidgetRepresentation::GetMarkupsNode()
     return nullptr;
     }
   return vtkMRMLMarkupsNode::SafeDownCast(this->MarkupsDisplayNode->GetDisplayableNode());
+}
+
+//----------------------------------------------------------------------
+vtkMRMLAbstractViewNode *vtkSlicerMarkupsWidgetRepresentation::GetViewNode()
+{
+  if (this->ViewNode)
+    return this->ViewNode;
+  else
+    return nullptr;
+}
+
+//----------------------------------------------------------------------
+vtkTransform *vtkSlicerMarkupsWidgetRepresentation::GetViewTransform()
+{
+  if (this->InteractionPipeline)
+    return this->InteractionPipeline->ViewTransform;
+  else
+    return nullptr;
+}
+
+//----------------------------------------------------------------------
+vtkCamera *vtkSlicerMarkupsWidgetRepresentation::GetViewCamera()
+{
+  if (this->Renderer)
+    return this->Renderer->GetActiveCamera();
+  else
+    return nullptr;
 }
 
 //----------------------------------------------------------------------

@@ -42,6 +42,7 @@
 // MRML includes
 #include "vtkMRMLTransformNode.h"
 #include <vtkMRMLApplicationLogic.h>
+#include "vtkMRMLViewNode.h"
 
 //----------------------------------------------------------------------
 vtkSlicerMarkupsWidget::vtkSlicerMarkupsWidget()
@@ -318,6 +319,10 @@ bool vtkSlicerMarkupsWidget::ProcessMouseMove(vtkMRMLInteractionEventData* event
       {
       this->ViewRotateWidget(eventPos);
       }
+    else if (state == WidgetStateIdle)
+     {
+      this->UpdateViewTransform(eventPos);
+     }
 
     if (markupsNode->GetCurveClosed())
       {
@@ -616,6 +621,85 @@ void vtkSlicerMarkupsWidget::UpdatePreviewPointIndex(vtkMRMLInteractionEventData
       }
     // if no preview points found, set to -1
     this->PreviewPointIndex = -1;
+}
+
+// -------------------------------------------------------------------------
+void vtkSlicerMarkupsWidget::UpdateViewTransform(double eventPos[2])
+{
+  vtkSlicerMarkupsWidgetRepresentation* rep = vtkSlicerMarkupsWidgetRepresentation::SafeDownCast(this->WidgetRep);
+  vtkSlicerMarkupsWidgetRepresentation2D* rep2d = vtkSlicerMarkupsWidgetRepresentation2D::SafeDownCast(this->WidgetRep);
+  vtkSlicerMarkupsWidgetRepresentation3D* rep3d = vtkSlicerMarkupsWidgetRepresentation3D::SafeDownCast(this->WidgetRep);
+  if (!rep)
+      return;
+
+  vtkMRMLSliceNode *sliceNode = vtkMRMLSliceNode::SafeDownCast(rep2d->GetViewNode());
+  vtkMRMLViewNode *threeDViewNode = vtkMRMLViewNode::SafeDownCast(rep3d->GetViewNode());
+  vtkTransform* ViewTransform = rep->GetViewTransform();
+
+  if (sliceNode)
+  {
+    vtkNew<vtkTransform> viewTransform;
+    viewTransform->PostMultiply();
+    viewTransform->Concatenate(sliceNode->GetSliceToRAS());
+
+    double pos[3] = {0,0,0};
+    viewTransform->TransformPoint(pos, pos);
+    viewTransform->Translate(-pos[0],-pos[1],-pos[2]);
+
+    double origin[3] = { 0,0,0 };
+    vtkMRMLMarkupsNode* markupsNode = this->GetMarkupsNode();
+    vtkNew<vtkTransform> HandleToWorldTransform;
+    HandleToWorldTransform->Concatenate(
+        markupsNode->GetInteractionHandleToWorldMatrix()
+    );
+
+    HandleToWorldTransform->TransformPoint(origin, origin);
+    viewTransform->Translate(origin);
+
+    ViewTransform->DeepCopy(viewTransform);
+  }
+  if (threeDViewNode)
+  {
+    vtkCamera* camera = rep3d->GetViewCamera();
+    if (!camera)
+        return;
+
+    vtkNew<vtkMatrix4x4> cameraMatrix;
+
+    //getColumnsOfTheMatrix
+    double viewUp[3];
+    camera->GetViewUp(viewUp);
+    double normal[3];
+    camera->GetViewPlaneNormal(normal);
+    double camRight[3];
+    vtkMath::Cross(normal, viewUp, camRight);
+    vtkMath::Normalize(camRight);
+    double pos[3] = {0,0,0};
+
+    vtkMRMLMarkupsNode* markupsNode = this->GetMarkupsNode();
+    vtkNew<vtkTransform> HandleToWorldTransform;
+    HandleToWorldTransform->Concatenate(
+        markupsNode->GetInteractionHandleToWorldMatrix()
+    );
+
+    HandleToWorldTransform->TransformPoint(pos, pos);
+
+    cameraMatrix->SetElement(0,0,camRight[0]);
+    cameraMatrix->SetElement(1,0,camRight[1]);
+    cameraMatrix->SetElement(2,0,camRight[2]);
+    cameraMatrix->SetElement(0,1,normal[0]);
+    cameraMatrix->SetElement(1,1,normal[1]);
+    cameraMatrix->SetElement(2,1,normal[2]);
+    cameraMatrix->SetElement(0,2,viewUp[0]);
+    cameraMatrix->SetElement(1,2,viewUp[1]);
+    cameraMatrix->SetElement(2,2,viewUp[2]);
+
+    vtkNew<vtkTransform> viewTransform;
+    viewTransform->PostMultiply();
+    viewTransform->SetMatrix(cameraMatrix);
+    viewTransform->Translate(pos);
+    ViewTransform->DeepCopy(viewTransform);
+  }
 }
 
 //-------------------------------------------------------------------------
@@ -1793,6 +1877,17 @@ vtkMRMLMarkupsNode* vtkSlicerMarkupsWidget::GetMarkupsNode()
     }
   return widgetRep->GetMarkupsNode();
 }
+
+//----------------------------------------------------------------------
+//vtkMRMLAbstractViewNode* vtkSlicerMarkupsWidget::GetViewNode()
+//{
+//  vtkSlicerMarkupsWidgetRepresentation* widgetRep = vtkSlicerMarkupsWidgetRepresentation::SafeDownCast(this->WidgetRep);
+//  if (!widgetRep)
+//    {
+//    return nullptr;
+//    }
+//  return widgetRep->GetViewNode();
+//}
 
 //----------------------------------------------------------------------
 vtkMRMLMarkupsDisplayNode* vtkSlicerMarkupsWidget::GetMarkupsDisplayNode()
