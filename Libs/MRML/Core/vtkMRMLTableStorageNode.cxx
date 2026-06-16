@@ -560,6 +560,19 @@ void vtkMRMLTableStorageNode::AddColumnToTable(vtkTable* table, vtkMRMLTableStor
     // schema is not defined or no valid column type is defined for column
     valueTypeId = VTK_STRING;
   }
+  if (valueTypeId != VTK_STRING //
+      && vtkSmartPointer<vtkDataArray>::Take(vtkDataArray::CreateDataArray(valueTypeId)) == nullptr)
+  {
+    // Some value types (such as 'variant' or 'object') cannot be represented by a vtkDataArray,
+    // so vtkDataArray::CreateDataArray() returns nullptr for them. Fall back to reading the column
+    // as string instead of dereferencing the null array (which would crash the application).
+    vtkWarningToMessageCollectionMacro(this->GetUserMessages(),
+                                       "vtkMRMLTableStorageNode::AddColumnToTable",
+                                       "Column '" << columnName << "' has unsupported value type '" //
+                                                  << vtkMRMLTableNode::GetValueTypeAsString(valueTypeId)
+                                                  << "'. The column is read as string.");
+    valueTypeId = VTK_STRING;
+  }
   if (valueTypeId == VTK_STRING)
   {
     if (rawComponentArrays.size() > 0)
