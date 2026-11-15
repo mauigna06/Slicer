@@ -141,6 +141,15 @@ protected:
 
   bool IsAnyControlPointLocked();
 
+  /// Returns false if free translation of the whole markup (middle-button drag, shift + left-button drag of a plane)
+  /// is not allowed in any direction, because the display node constrains it to the translation handle axes
+  /// and none of the translation handle components are enabled.
+  bool IsFreeTranslationAllowed();
+
+  /// Restrict the translation vector of a free translation of the whole markup to the enabled translation handle axes,
+  /// if the display node constrains free translation (see vtkMRMLMarkupsDisplayNode::FreeTranslationConstrainedToHandleAxes).
+  void ConstrainFreeTranslationToHandleAxes(double translationVector_World[3]);
+
   // Get accurate world position.
   // World position that comes in the event data may be inaccurate, this method computes a more reliable position.
   // Returns true on success.

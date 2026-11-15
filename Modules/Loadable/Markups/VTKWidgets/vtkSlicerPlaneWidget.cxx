@@ -80,6 +80,12 @@ bool vtkSlicerPlaneWidget::CanProcessInteractionEvent(vtkMRMLInteractionEventDat
   {
     return false;
   }
+  if (this->TranslateInteractionEventToWidgetEvent(eventData) == WidgetEventPlaneMoveStart //
+      && !this->IsFreeTranslationAllowed())
+  {
+    // Let other widgets process the event (for example, shift + left-button drag pans the view)
+    return false;
+  }
   if (this->WidgetState == WidgetStateTranslatePlane)
   {
     distance2 = 0.0;
@@ -142,7 +148,8 @@ bool vtkSlicerPlaneWidget::ProcessInteractionEvent(vtkMRMLInteractionEventData* 
 bool vtkSlicerPlaneWidget::ProcessPlaneMoveStart(vtkMRMLInteractionEventData* eventData)
 {
   vtkMRMLMarkupsDisplayNode* displayNode = this->GetMarkupsDisplayNode();
-  if (!displayNode || displayNode->GetActiveComponentType() != vtkMRMLMarkupsDisplayNode::ComponentPlane)
+  if (!displayNode || displayNode->GetActiveComponentType() != vtkMRMLMarkupsDisplayNode::ComponentPlane //
+      || !this->IsFreeTranslationAllowed())
   {
     return false;
   }
@@ -366,19 +373,7 @@ bool vtkSlicerPlaneWidget::ProcessPlaneTranslate(vtkMRMLInteractionEventData* ev
   vector_World[1] = worldPos[1] - ref[1];
   vector_World[2] = worldPos[2] - ref[2];
 
-  bool lockToNormal = false;
-  if (lockToNormal)
-  {
-    double normal[3] = { 0 };
-    markupsNode->GetNormal(normal);
-
-    double magnitude = vtkMath::Dot(vector_World, normal);
-    vtkMath::MultiplyScalar(normal, magnitude);
-    for (int i = 0; i < 3; ++i)
-    {
-      vector_World[i] = normal[i];
-    }
-  }
+  this->ConstrainFreeTranslationToHandleAxes(vector_World);
 
   MRMLNodeModifyBlocker blocker(markupsNode);
 

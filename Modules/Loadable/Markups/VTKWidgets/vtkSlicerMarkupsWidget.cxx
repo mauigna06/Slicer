@@ -20,6 +20,7 @@
 
 #include "vtkMRMLInteractionEventData.h"
 #include "vtkMRMLInteractionNode.h"
+#include "vtkMRMLMarkupsDisplayNode.h"
 #include "vtkMRMLScene.h"
 #include "vtkSlicerMarkupsWidgetRepresentation.h"
 #include "vtkSlicerMarkupsWidgetRepresentation2D.h"
@@ -30,6 +31,8 @@
 #include <vtkCommand.h>
 #include <vtkEvent.h>
 #include <vtkLine.h>
+#include <vtkMath.h>
+#include <vtkMatrix4x4.h>
 #include <vtkPlane.h>
 #include <vtkPointPlacer.h>
 #include <vtkRenderWindow.h>
@@ -129,7 +132,8 @@ bool vtkSlicerMarkupsWidget::ProcessControlPointInsert(vtkMRMLInteractionEventDa
 //-------------------------------------------------------------------------
 bool vtkSlicerMarkupsWidget::ProcessWidgetTranslateStart(vtkMRMLInteractionEventData* eventData)
 {
-  if (this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget)
+  if (this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget //
+      || !this->IsFreeTranslationAllowed())
   {
     return false;
   }
@@ -556,6 +560,12 @@ bool vtkSlicerMarkupsWidget::CanProcessInteractionEvent(vtkMRMLInteractionEventD
     return false;
   }
 
+  if (widgetEvent == WidgetEventTranslateStart && !this->IsFreeTranslationAllowed())
+  {
+    // Let other widgets process the event (for example, middle-button drag pans the view)
+    return false;
+  }
+
   // If we are placing markups or dragging the mouse then we interact everywhere
   if (this->WidgetState == WidgetStateDefine                   //
       || this->WidgetState == WidgetStateTranslateControlPoint //
@@ -973,6 +983,8 @@ void vtkSlicerMarkupsWidget::TranslateWidget(double eventPos[2])
   translationVector_World[1] = eventPos_World[1] - lastEventPos_World[1];
   translationVector_World[2] = eventPos_World[2] - lastEventPos_World[2];
 
+  this->ConstrainFreeTranslationToHandleAxes(translationVector_World);
+
   vtkNew<vtkTransform> translationTransform;
   translationTransform->Translate(translationVector_World);
 
@@ -1067,6 +1079,66 @@ bool vtkSlicerMarkupsWidget::IsAnyControlPointLocked()
     }
   }
   return false;
+}
+
+//-------------------------------------------------------------------------
+bool vtkSlicerMarkupsWidget::IsFreeTranslationAllowed()
+{
+  vtkMRMLMarkupsDisplayNode* displayNode = this->GetMarkupsDisplayNode();
+  if (!displayNode || !displayNode->GetFreeTranslationConstrainedToHandleAxes())
+  {
+    return true;
+  }
+  bool* enabledComponents = displayNode->GetTranslationHandleComponentVisibility();
+  return enabledComponents[0] || enabledComponents[1] || enabledComponents[2] || enabledComponents[3];
+}
+
+//-------------------------------------------------------------------------
+void vtkSlicerMarkupsWidget::ConstrainFreeTranslationToHandleAxes(double translationVector_World[3])
+{
+  vtkMRMLMarkupsNode* markupsNode = this->GetMarkupsNode();
+  vtkMRMLMarkupsDisplayNode* displayNode = this->GetMarkupsDisplayNode();
+  if (!markupsNode || !displayNode || !displayNode->GetFreeTranslationConstrainedToHandleAxes())
+  {
+    return;
+  }
+  // Translation components are [X, Y, Z, ViewPlane]
+  bool* enabledComponents = displayNode->GetTranslationHandleComponentVisibility();
+  if (enabledComponents[3])
+  {
+    // Translation along the view plane is allowed, which is what free translation does
+    return;
+  }
+
+  // Keep only the components of the translation along the enabled axes of the interaction handles.
+  // The interaction handle axes are orthogonal, so the projection onto their span is the sum of the projections onto each axis.
+  vtkMatrix4x4* handleToWorldMatrix = markupsNode->GetInteractionHandleToWorldMatrix();
+  double constrainedTranslationVector_World[3] = { 0.0, 0.0, 0.0 };
+  for (int axisIndex = 0; axisIndex < 3; ++axisIndex)
+  {
+    if (!enabledComponents[axisIndex])
+    {
+      continue;
+    }
+    double axis_World[3] = {
+      handleToWorldMatrix->GetElement(0, axisIndex),
+      handleToWorldMatrix->GetElement(1, axisIndex),
+      handleToWorldMatrix->GetElement(2, axisIndex),
+    };
+    if (vtkMath::Normalize(axis_World) == 0.0)
+    {
+      continue;
+    }
+    double translationAlongAxis = vtkMath::Dot(translationVector_World, axis_World);
+    for (int i = 0; i < 3; ++i)
+    {
+      constrainedTranslationVector_World[i] += translationAlongAxis * axis_World[i];
+    }
+  }
+  for (int i = 0; i < 3; ++i)
+  {
+    translationVector_World[i] = constrainedTranslationVector_World[i];
+  }
 }
 
 //-------------------------------------------------------------------------

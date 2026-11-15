@@ -148,6 +148,7 @@ vtkMRMLMarkupsDisplayNode::vtkMRMLMarkupsDisplayNode()
     this->TranslationHandleComponentVisibility[i] = true;
   }
   this->RotationHandleComponentVisibility[3] = false; // Hide view plane rotation by default
+  this->FreeTranslationConstrainedToHandleAxes = false;
 
   this->CanDisplayScaleHandles = false;
 
@@ -216,6 +217,7 @@ void vtkMRMLMarkupsDisplayNode::WriteXML(ostream& of, int nIndent)
   vtkMRMLWriteXMLVectorMacro(translationHandleAxes, TranslationHandleComponentVisibility, bool, 4);
   vtkMRMLWriteXMLVectorMacro(rotationHandleAxes, RotationHandleComponentVisibility, bool, 4);
   vtkMRMLWriteXMLVectorMacro(scaleHandleAxes, ScaleHandleComponentVisibility, bool, 4);
+  vtkMRMLWriteXMLBooleanMacro(freeTranslationConstrainedToHandleAxes, FreeTranslationConstrainedToHandleAxes);
 
   vtkMRMLWriteXMLEndMacro();
 }
@@ -273,6 +275,7 @@ void vtkMRMLMarkupsDisplayNode::ReadXMLAttributes(const char** atts)
   vtkMRMLReadXMLVectorMacro(rotationHandleAxes, RotationHandleComponentVisibility, bool, 4);
   vtkMRMLReadXMLVectorMacro(scaleHandleAxes, ScaleHandleComponentVisibility, bool, 4);
   vtkMRMLReadXMLVectorMacro(translationHandleAxes, TranslationHandleComponentVisibility, bool, 4);
+  vtkMRMLReadXMLBooleanMacro(freeTranslationConstrainedToHandleAxes, FreeTranslationConstrainedToHandleAxes);
   vtkMRMLReadXMLEndMacro();
 
   // Fix up legacy markups fiducial nodes
@@ -364,6 +367,7 @@ void vtkMRMLMarkupsDisplayNode::CopyContent(vtkMRMLNode* anode, bool deepCopy /*
   vtkMRMLCopyVectorMacro(RotationHandleComponentVisibility, bool, 4);
   vtkMRMLCopyVectorMacro(ScaleHandleComponentVisibility, bool, 4);
   vtkMRMLCopyVectorMacro(TranslationHandleComponentVisibility, bool, 4);
+  vtkMRMLCopyBooleanMacro(FreeTranslationConstrainedToHandleAxes);
   vtkMRMLCopyEndMacro();
 }
 
@@ -570,6 +574,7 @@ void vtkMRMLMarkupsDisplayNode::PrintSelf(ostream& os, vtkIndent indent)
   vtkMRMLPrintVectorMacro(RotationHandleComponentVisibility, bool, 4);
   vtkMRMLPrintVectorMacro(ScaleHandleComponentVisibility, bool, 4);
   vtkMRMLPrintVectorMacro(TranslationHandleComponentVisibility, bool, 4);
+  vtkMRMLPrintBooleanMacro(FreeTranslationConstrainedToHandleAxes);
   vtkMRMLPrintEndMacro();
 }
 

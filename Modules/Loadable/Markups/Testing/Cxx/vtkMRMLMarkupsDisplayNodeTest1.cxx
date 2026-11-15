@@ -89,6 +89,7 @@ int vtkMRMLMarkupsDisplayNodeTest1(int, char*[])
   TEST_SET_GET_DOUBLE_RANGE(node1, GlyphScale, -1.0, 25.6);
 
   TEST_SET_GET_BOOLEAN(node1, SliceProjection);
+  TEST_SET_GET_BOOLEAN(node1, FreeTranslationConstrainedToHandleAxes);
   TEST_SET_GET_VECTOR3_DOUBLE_RANGE(node1, SliceProjectionColor, 0.0, 1.0);
 
   node1->SetSliceProjectionOpacity(0.0);

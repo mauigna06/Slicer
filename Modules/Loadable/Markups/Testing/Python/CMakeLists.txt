@@ -70,3 +70,7 @@ slicer_add_python_unittest(SCRIPT PluggableMarkupsSelfTest.py)
 # Test properties label text, persistence, visibility, and interaction.
 slicer_add_python_test(SCRIPT MarkupsPropertiesLabelTest.py
                        SLICER_ARGS --disable-cli-modules)
+
+# Test constraining free translation of markups (middle-button drag, shift + left-button drag of planes) to the handle axes
+slicer_add_python_unittest(SCRIPT MarkupsFreeTranslationConstraintTest.py
+                           SLICER_ARGS --disable-cli-modules)

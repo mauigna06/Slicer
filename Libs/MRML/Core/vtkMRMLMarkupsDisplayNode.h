@@ -550,6 +550,19 @@ public:
   vtkGetVector4Macro(TranslationHandleComponentVisibility, bool);
   //@}
 
+  //@{
+  /// Constrain free translation of the whole markup to the enabled translation handle axes.
+  /// Middle-button drag of a markup and shift + left-button drag of a plane translate the whole markup along the view plane.
+  /// If this flag is enabled and the "ViewPlane" component of TranslationHandleComponentVisibility is disabled,
+  /// then these interactions only translate the markup along the X, Y, Z axes of the interaction handles that are enabled
+  /// in TranslationHandleComponentVisibility. If no component is enabled, then these interactions do not translate the markup.
+  /// The constraint applies whether the interaction handles are visible or not.
+  /// Disabled by default.
+  vtkGetMacro(FreeTranslationConstrainedToHandleAxes, bool);
+  vtkSetMacro(FreeTranslationConstrainedToHandleAxes, bool);
+  vtkBooleanMacro(FreeTranslationConstrainedToHandleAxes, bool);
+  //@}
+
   /// Get data set containing the scalar arrays for this node type.
   /// For markups it is the curve poly data
   virtual vtkDataSet* GetScalarDataSet() override;
@@ -642,6 +655,7 @@ protected:
   bool RotationHandleComponentVisibility[4];
   bool ScaleHandleComponentVisibility[4];
   bool TranslationHandleComponentVisibility[4];
+  bool FreeTranslationConstrainedToHandleAxes;
 
   bool CanDisplayScaleHandles;
 };
